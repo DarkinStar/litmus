@@ -7,6 +7,7 @@ import {
 import { askJev, testConnection, JevError } from './lib/jev.js';
 import { buildQuestions, buildState } from './lib/questions.js';
 import { computeResult } from './lib/scoring.js';
+import * as history from './lib/history.js';
 
 // §6.1 — first launch opens the options page automatically.
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
@@ -72,7 +73,8 @@ async function scoreVacancy(vacancy, force) {
 
   // §3 / §5.1 — ONE call carrying every question for this vacancy.
   const state = buildState(vacancy, profile, prefs);
-  const { questions, reqIndex, askedSubs } = buildQuestions(vacancy, profile, prefs, settings);
+  const { questions, reqIndex, askedSubs, computedSubs } =
+    buildQuestions(vacancy, profile, prefs, settings);
 
   const json = await askJev({ apiKey, state, questions });
 
@@ -80,6 +82,7 @@ async function scoreVacancy(vacancy, force) {
     answers: json.answers || {},
     reqIndex,
     askedSubs,
+    computedSubs,
     settings,
     vacancy,
     modelVersion: json.model,
@@ -100,6 +103,8 @@ async function scoreVacancy(vacancy, force) {
 
   await addUsage(json.usage);
   if (vacancy.id) await cacheSet(vacancy.id, result);
+  // Survives a cache clear — it is the raw material for skill gap analysis.
+  await history.record(result, vacancy);
 
   return { result, settings };
 }
@@ -133,7 +138,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             hasProfile: isProfileUsable(profile),
             onboarded,
             usage,
-            cached: Object.keys(all).filter((k) => k.startsWith(CACHE_PREFIX)).length
+            cached: Object.keys(all).filter((k) => k.startsWith(CACHE_PREFIX)).length,
+            tracked: Object.keys(all).filter((k) => k.startsWith(history.HISTORY_PREFIX)).length
           });
           break;
         }
@@ -145,6 +151,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         case 'clearCache': {
           const n = await cacheClear();
           sendResponse({ ok: true, cleared: n });
+          break;
+        }
+        case 'getHistory': {
+          sendResponse({ ok: true, rows: await history.all() });
+          break;
+        }
+        case 'getSkillGaps': {
+          sendResponse({ ok: true, gaps: await history.skillGaps({ minCount: msg.minCount ?? 2 }) });
+          break;
+        }
+        case 'exportHistoryCsv': {
+          sendResponse({ ok: true, csv: await history.exportCsv() });
+          break;
+        }
+        case 'clearHistory': {
+          sendResponse({ ok: true, cleared: await history.clear() });
           break;
         }
         case 'resetUsage': {

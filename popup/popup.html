@@ -31,6 +31,10 @@
     button.primary { background: #2965cc; border-color: #2965cc; color: #fff; }
     button.primary:hover { background: #2358b4; }
     .note { font-size: 11px; color: #9aa2ae; margin-top: 12px; }
+    .gaps { font-size: 12px; color: #5a6472; }
+    .gap { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; }
+    .gap .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gap .n { font-weight: 600; color: #a15c00; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
@@ -47,10 +51,15 @@
     <tr><td>Input tokens</td><td class="v" id="tokens">0</td></tr>
     <tr><td>Estimated spend</td><td class="v" id="cost">$0.00</td></tr>
     <tr><td>Cached vacancies</td><td class="v" id="cached">0</td></tr>
+    <tr><td>Vacancies tracked</td><td class="v" id="tracked">0</td></tr>
   </table>
+
+  <h2>Skill gaps</h2>
+  <div id="gaps" class="gaps">Nothing tracked yet.</div>
 
   <div class="btns">
     <button class="primary" id="openOptions">Settings &amp; profile</button>
+    <button id="exportCsv">Export history CSV</button>
     <button id="clearCache">Clear cache</button>
   </div>
 

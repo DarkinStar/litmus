@@ -71,7 +71,18 @@ ul.list li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; 
 .alert.cap { background: #fdeaea; border: 1px solid #f5c2c2; color: #a62828; }
 .alert.err { background: #fdeaea; border: 1px solid #f5c2c2; color: #a62828; }
 .alert.info { background: #eef4fd; border: 1px solid #c9dcf7; color: #1f4e8c; }
+.alert.good { background: #e8f6ee; border: 1px solid #b7e3c9; color: #14693f; }
 .alert b { font-weight: 600; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.chip {
+  font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+  background: #f2f4f7; color: #5a6472; border: 1px solid #e3e7ec; cursor: help;
+}
+.chip.warn { background: #fdf5e6; border-color: #f0dcb4; color: #a15c00; }
+.chip.good { background: #e8f6ee; border-color: #b7e3c9; color: #14693f; }
+.section h3 .note { font-weight: 400; text-transform: none; letter-spacing: 0; color: #b0b7c1; }
+.calc { color: #129d5f; cursor: help; font-weight: 700; }
 
 .flags li { color: #a15c00; }
 .flags .mark { color: #d99100; }
@@ -198,7 +209,6 @@ pre.dbg {
   }
 
   const SUB_LABELS = {
-    skills: 'Skills match',
     requirements: 'Requirements',
     experience: 'Experience level',
     location: 'Location / format',
@@ -229,15 +239,17 @@ pre.dbg {
       rows.push({ key: 'requirements', pct: Math.round(result.passRate * 100), unsure: false });
     }
     for (const [key, v] of Object.entries(result.subs || {})) {
-      rows.push({ key, pct: v.pct, unsure: v.unsure });
+      rows.push({ key, pct: v.pct, unsure: v.unsure, computed: v.computed, reason: v.reason });
     }
-    const order = ['skills', 'requirements', 'experience', 'domain', 'location', 'salary'];
+    const order = ['requirements', 'experience', 'domain', 'location', 'salary'];
     rows.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
     return rows.map((r) => `
 <div class="sub">
   <span class="lbl">${esc(SUB_LABELS[r.key] || r.key)}</span>
   <span class="bar"><i style="width:${r.pct}%"></i></span>
-  <span class="val">${r.pct}%${r.unsure ? ' <span class="unsure" title="Low confidence — check manually">?</span>' : ''}</span>
+  <span class="val">${r.pct}%${
+    r.computed ? ' <span class="calc" title="' + esc(r.reason || '') + '">=</span>' : ''
+  }${r.unsure ? ' <span class="unsure" title="Low confidence — check manually">?</span>' : ''}</span>
 </div>`).join('');
   }
 
@@ -264,6 +276,30 @@ pre.dbg {
     parts.push(`<div class="top">${gauge(result.overall, result.band)}
       <div class="subs">${subRows(result)}</div></div>`);
 
+    // Coverage and task affinity sit beside the score rather than inside it:
+    // one says how much of the checklist could be judged at all, the other
+    // answers a different question from the formal fit.
+    const chips = [];
+    if (result.coverage !== null && result.coverage !== undefined && result.hardCount) {
+      const covPct = Math.round(result.coverage * 100);
+      chips.push(`<span class="chip ${covPct < 60 ? 'warn' : ''}" title="Requirements your profile said anything about. Low coverage damps the requirement score rather than inflating it.">
+        ${result.ratedCount} of ${result.hardCount} assessed · coverage ${covPct}%</span>`);
+    }
+    if (result.taskAffinity !== null && result.taskAffinity !== undefined) {
+      const strong = result.overall !== null && result.taskAffinity >= result.overall + 20;
+      chips.push(`<span class="chip ${strong ? 'good' : ''}" title="How much of the actual day-to-day work you have already done, ignoring formal requirements.">
+        Task match ${result.taskAffinity}%${strong ? ' ↑' : ''}</span>`);
+    }
+    if (result.niceBonus) {
+      chips.push(`<span class="chip good" title="Nice-to-haves are upside only — they add points, never subtract.">+${result.niceBonus} nice-to-have</span>`);
+    }
+    if (chips.length) parts.push(`<div class="chips">${chips.join('')}</div>`);
+
+    if (result.taskAffinity !== null && result.overall !== null
+        && result.taskAffinity >= result.overall + 20) {
+      parts.push(`<div class="alert good">You have done much of this work already, even though you fall short on the formal requirements. Worth applying and leading with the task overlap.</div>`);
+    }
+
     if (result.capped) {
       parts.push(`<div class="alert cap"><b>Score capped.</b> ${
         result.dealbreakers.map((d) => esc(d.label)).join('; ')
@@ -279,20 +315,32 @@ pre.dbg {
     parts.push(`<div class="section"><h3>Requirements (${result.requirements.length})</h3>
       ${checklist(result.requirements, 'Jev did not identify any hard requirements in this description.')}</div>`);
 
-    if (result.unassessedCount) {
-      parts.push(`<div class="alert info">${result.unassessedCount} item${
-        result.unassessedCount === 1 ? '' : 's'
-      } could not be assessed — your profile doesn't mention them either way. They are excluded from the score, not counted against you. Worth adding to your profile, or addressing in the cover letter.</div>`);
+    // Counted per kind: a must-have your profile is silent on matters far more
+    // than an optional bonus it is silent on.
+    const ub = result.unassessedByKind || {};
+    if (ub.hard_requirement) {
+      parts.push(`<div class="alert info"><b>${ub.hard_requirement} requirement${
+        ub.hard_requirement === 1 ? '' : 's'
+      } could not be assessed</b> — your profile doesn't mention them either way, so they are excluded from the score rather than counted against you. That also lowers coverage, which damps the requirement score. Adding them to your profile is the single highest-value fix.</div>`);
     }
 
     if (result.niceToHave && result.niceToHave.length) {
-      parts.push(`<div class="section"><h3>Nice to have (${result.niceToHave.length})</h3>
+      const extra = ub.nice_to_have ? ` · ${ub.nice_to_have} not in profile` : '';
+      parts.push(`<div class="section"><h3>Nice to have (${result.niceToHave.length})${extra}
+        <span class="note">bonus only, never a penalty</span></h3>
         ${checklist(result.niceToHave, '')}</div>`);
     }
 
     if (result.eligibility && result.eligibility.length) {
-      parts.push(`<div class="section"><h3>Eligibility &amp; availability (${result.eligibility.length})</h3>
+      parts.push(`<div class="section"><h3>Eligibility &amp; availability (${result.eligibility.length})
+        <span class="note">pass/fail, not scored</span></h3>
         ${checklist(result.eligibility, '')}</div>`);
+    }
+
+    if (result.softSkills && result.softSkills.length) {
+      parts.push(`<div class="section"><h3>Soft skills (${result.softSkills.length})
+        <span class="note">cannot be judged from a CV — shown for reference</span></h3>
+        ${checklist(result.softSkills, '')}</div>`);
     }
 
     if (result.flags.length) {

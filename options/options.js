@@ -80,7 +80,6 @@ function renderCards(container, items, fields, onChange) {
 // ---- weights ---------------------------------------------------------------
 
 const WEIGHT_LABELS = {
-  skills: 'Skills match',
   requirements: 'Requirement checklist',
   experience: 'Experience level',
   domain: 'Role / domain',
@@ -141,7 +140,8 @@ function fillForm() {
   $('maxCandidates').value = s.maxCandidates;
   $('reqOk').value = s.reqOk;
   $('reqFail').value = s.reqFail;
-  $('scoreNiceToHave').checked = !!s.scoreNiceToHave;
+  $('niceToHaveBonus').value = s.niceToHaveBonus;
+  $('coverageFloor').value = s.coverageFloor;
   $('showDiscarded').checked = !!s.showDiscarded;
   $('showDebug').checked = !!s.showDebug;
   $('dealbreakerProb').value = s.dealbreakerProb;
@@ -183,7 +183,8 @@ function readForm() {
   s.maxCandidates = num('maxCandidates') ?? DEFAULT_SETTINGS.maxCandidates;
   s.reqOk = num('reqOk') ?? DEFAULT_SETTINGS.reqOk;
   s.reqFail = num('reqFail') ?? DEFAULT_SETTINGS.reqFail;
-  s.scoreNiceToHave = $('scoreNiceToHave').checked;
+  s.niceToHaveBonus = num('niceToHaveBonus') ?? DEFAULT_SETTINGS.niceToHaveBonus;
+  s.coverageFloor = num('coverageFloor') ?? DEFAULT_SETTINGS.coverageFloor;
   s.showDiscarded = $('showDiscarded').checked;
   s.showDebug = $('showDebug').checked;
   s.dealbreakerProb = num('dealbreakerProb') ?? DEFAULT_SETTINGS.dealbreakerProb;

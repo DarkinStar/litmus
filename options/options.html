@@ -161,7 +161,11 @@
       <label>Mark ✓ at or above<input type="number" id="reqOk" min="0" max="1" step="0.05"></label>
       <label>Mark ✕ below<input type="number" id="reqFail" min="0" max="1" step="0.05"></label>
     </div>
-    <label class="check"><input type="checkbox" id="scoreNiceToHave"> Count nice-to-haves toward the score as well</label>
+    <div class="grid two">
+      <label>Nice-to-have bonus, max points<input type="number" id="niceToHaveBonus" min="0" max="20"></label>
+      <label>Coverage damping floor<input type="number" id="coverageFloor" min="0" max="1" step="0.05"></label>
+    </div>
+    <p class="hint">Nice-to-haves add points and never subtract them. The coverage floor controls how much a thin profile is damped: at 0.70, a vacancy where nothing could be assessed keeps 70% of its requirement score rather than collapsing to zero.</p>
     <label class="check"><input type="checkbox" id="showDiscarded"> Show lines the classifier dropped, and why (debug)</label>
     <label class="check"><input type="checkbox" id="showDebug"> Show the exact data sent to Jev, in the panel (debug)</label>
 

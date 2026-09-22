@@ -8,7 +8,18 @@ Repo: https://github.com/DarkinStar/litmus  (MIT, public)
 =============================================================
 Last updated: 2026-09-22
 
-Phase: v0.2.0. Run against the live API and revised from what came back.
+Phase: v0.3.0. Revised twice from live runs across four real vacancies.
+
+v0.3.0 addressed 22 reported issues. The load-bearing ones:
+  - hh's structured fields were being judged instead of compared (D11)
+  - a 15-char harvest floor was eating real requirements ("Основы SQL" is 10,
+    "Pytest" is 6). Floor is now 5.
+  - unknowns inflated the score; coverage now damps it (D12)
+  - "Skills match" contradicted the checklist and was removed (D10 withdrawn)
+  - bundled lines are split conservatively so you can see WHICH part fails
+  - task affinity added as a separate signal (D14)
+  - history logging added: every scored vacancy is now recorded for skill-gap
+    analysis. Before this, every vacancy browsed was lost data.
 
 RESOLVED by the first live run (jev-1.13.0, 71 questions, 13314 tok, 802 ms):
   - The request shape from docs.typesafe.ai/api.md works unmodified.
@@ -39,9 +50,30 @@ Decisions locked (do not reopen without a reason):
   D9. Satisfaction is a 4-way `choice` that includes `not_addressed`. "The
       profile never mentions it" is not "the candidate lacks it". Unassessable
       items are excluded from the pass rate, never counted as failures. (§5.2)
-  D10. "Skills match" scores against hh's OWN key-skill tags, not the
-      description prose, so it stops duplicating the requirement checklist.
-      No tags on the posting -> question skipped, weight redistributes. (§5.3)
+  D10. WITHDRAWN in v0.3.0. "Skills match" was re-scoped to hh's own key-skill
+      tags to break its overlap with the checklist. It did not work: three
+      coarse tags returned 100% while the line-by-line checklist said 55%,
+      contradicting itself inside one panel, and the sub-score only existed on
+      the postings that carry tags, so the score composition changed silently
+      between vacancies. The sub-score is REMOVED and its 0.30 folded into
+      requirements (now 0.55). Do not reintroduce it.
+  D11. hh's structured fields are a CLOSED VOCABULARY, normalised in code and
+      never judged by the model. "Experience: not required" versus any
+      candidate is a comparison, not a judgment; asking returned 40%. An
+      unrecognised string returns null and falls back to the model, so a
+      missing translation can only produce an unknown, never a wrong number.
+      See lib/hhvocab.js. (§4.6)
+  D12. Coverage is DISPLAYED and DAMPS the requirement score. Excluding
+      unassessable items (D9) stopped punishing a silent profile but created
+      the mirror failure: a thinner profile had fewer items assessed and so
+      scored HIGHER. Damping is floored (default 0.70) so it degrades
+      gracefully instead of collapsing. (§5.3)
+  D13. Nice-to-haves are UPSIDE ONLY — a capped bonus, never a penalty. Soft
+      skills are shown but never scored: they cannot be judged from a CV.
+  D14. Task affinity is a SEPARATE number beside the gauge, never folded into
+      it. "Have you already done this work?" is a different question from "do
+      you clear their stated bar?", and averaging the two buries the
+      weak-on-paper / strong-in-practice case. (§5.5)
 
 Defaults chosen on the user's behalf (flag if you disagree):
   - Checklist contributes a PASS-RATE (not a pass-count) to the overall
@@ -207,6 +239,27 @@ Therefore: NEVER match on Russian (or English) label text. Parse numbers with
 a digit regex, take tax status from the data-qa marker, and keep the raw
 string as a passthrough field for Jev to read.
 
+--- 4.6  hh's structured fields are a CLOSED VOCABULARY (D11) ---------------
+There are NO enum tokens in the vacancy-page DOM — checked, the
+noExperience / between1And3 markers exist only in the unrelated "similar
+vacancies" serp block. The values exist purely as localised strings:
+  experience   "not required" | "1-3 years" | "3-6 years" | "more than 6 years"
+  work format  "remotely" | "at the employer's location" | "hybrid" | "field work"
+  employment   "Full-time employment" | ...
+  schedule     "Schedule: 5/2"   <- was not extracted before v0.3.0
+About a dozen strings per language, so a lookup table is the only route and is
+NOT the prose parsing D4 forbids. The safety property: an unrecognised string
+returns null and the caller falls back to handing raw text to the model, i.e.
+today's behaviour. A missing translation yields an unknown, never a wrong
+number. lib/hhvocab.js.
+
+Deterministic outcomes, never asked of the model:
+  experience "not required"                     -> 100%
+  work format includes the required format,
+    and that format is remote                   -> 100% (city is irrelevant)
+  work format excludes the required format      -> 0%
+Everything else falls through to the model.
+
 --- 4.5  Description structure is wildly inconsistent ----------------------
   A: 72 <p>, ZERO <ul>. Requirements are plain paragraphs under a
      <strong>Требования</strong> line.
@@ -292,18 +345,22 @@ between not_a_requirement and not_satisfied, and you can't tell which
 happened. Two nouls keep each judgment atomic (see §5.4). The choice variant
 saves tokens we are not spending anyway.
 
-Cost, MEASURED by `npm run dry` (v0.2.0, choice-based):
-  page A  60 candidates (capped) -> 136 questions -> ~23.9k tok -> $0.00101
-  page B  14 candidates          ->  43 questions ->  ~6.7k tok -> $0.00028
-  page C  20 candidates          ->  55 questions -> ~11.1k tok -> $0.00047
-Roughly 1.6x the noul version, because each choice question re-sends its
-criteria descriptions (6 for kind, 4 for fit) on every line. Still a tenth of
-a cent at worst; the $5 credit is ~5,000 vacancies at page-A size. The
-heaviest page uses 37% of the 64k request limit and 6% of the 32k state limit.
-Cost is NOT a constraint, which is why harvesting stays generous rather than
-cleverly pre-filtered — a tight filter risks dropping a real requirement to
-save money we aren't spending. If cost ever DID matter, the lever is the
-repeated criteria text, not the candidate count.
+Cost, MEASURED by `npm run dry` (v0.3.0):
+  page A  60 candidates (capped) -> 137 questions -> ~38.7k tok -> $0.00162
+  page B  14 candidates          ->  44 questions -> ~10.3k tok -> $0.00043
+  page C  21 candidates          ->  57 questions -> ~16.6k tok -> $0.00070
+Up again from v0.2.0: more candidates survive the lowered floor and the bundle
+split, and the kind/fit criteria text grew to fix heading and inference bugs.
+Worst case is still under a fifth of a cent; the $5 credit is ~3,000 vacancies
+at page-A size.
+
+TOKEN BUDGET GUARD (added v0.3.0). Page A now uses 60% of the 64k request
+limit, so a genuinely long posting could overflow it. buildQuestions() trims
+the candidate list to fit a ~48k budget before building, floored at 10 lines,
+so an oversized vacancy loses checklist depth instead of erroring. The lever
+if cost or size ever bites is the REPEATED CRITERIA TEXT — each choice
+question re-sends its full dictionary, ~360 tokens per line — not the
+candidate count.
 
 LATENCY — RESOLVED, not a risk. First live run: 71 questions, 802 ms
 end-to-end, inside the <1s target. The documented parallel-evaluation claim

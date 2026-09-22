@@ -102,6 +102,11 @@
    * no language assumptions. Jev discards the non-requirements in step 3.
    * Measured counts on the test corpus: A=65, B=15, C=23.
    */
+  // A 15-char floor silently ate real requirements: "Основы SQL" (10),
+  // "Свой чат-бот" (12), "GitLab CI" (9), "Pytest" (6). Skill names are short.
+  const MIN_LINE = 5;
+  const MAX_LINE = 300;
+
   function harvestRequirementCandidates(descEl, cap) {
     if (!descEl) return [];
     const out = [];
@@ -109,15 +114,45 @@
     for (const el of descEl.querySelectorAll('li, p')) {
       if (el.querySelector('li, p')) continue;          // containers, not leaves
       const t = clean(el.textContent);
-      if (t.length < 15 || t.length > 300) continue;
+      if (t.length < MIN_LINE || t.length > MAX_LINE) continue;
       if (isHeading(t)) continue;
-      const k = t.toLowerCase();
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(t);
-      if (out.length >= (cap || 60)) break;
+
+      for (const piece of splitBundled(t)) {
+        if (piece.length < MIN_LINE) continue;
+        const k = piece.toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(piece);
+        if (out.length >= (cap || 60)) return out;
+      }
     }
     return out;
+  }
+
+  /**
+   * Split a line that is a bare list of technologies into separate checkable
+   * items, so "FastAPI, Pydantic, asyncio" stops averaging into one vague
+   * score that hides which part fails.
+   *
+   * Deliberately conservative: it only splits when EVERY fragment is short and
+   * free of sentence structure, so "Опыт работы с Python, Django и PostgreSQL
+   * от 3 лет" stays whole. The failure mode is an odd-looking checklist line,
+   * never a wrong score.
+   */
+  function splitBundled(t) {
+    if (t.length > 120) return [t];
+    if (!/[,;]/.test(t)) return [t];
+
+    const parts = t.split(/\s*[;,]\s*/).map((p) => p.replace(/[.;,]+$/, '').trim()).filter(Boolean);
+    if (parts.length < 2) return [t];
+
+    const looksLikeItem = (p) =>
+      p.length <= 35 &&
+      p.split(/\s+/).length <= 4 &&        // a clause needs more words than this
+      !/\s(и|или|от|до|с|для|and|or|with|from)\s/i.test(p);
+
+    if (!parts.every(looksLikeItem)) return [t];
+    return parts;
   }
 
   /**
@@ -199,6 +234,7 @@
       experience: qaText(doc, 'vacancy-experience') || qaText(doc, 'work-experience-text'),
       workFormat: qaText(doc, 'work-formats-text'),
       employment: qaText(doc, 'common-employment-text'),
+      schedule: qaText(doc, 'work-schedule-by-days-text'),
       keySkills: keySkills(doc),
 
       descriptionText: descriptionText(descEl),
@@ -232,6 +268,7 @@
     vacancyIdFromUrl,
     harvestRequirementCandidates,
     isHeading,
+    splitBundled,
     parseSalary,
     toPlainText
   };

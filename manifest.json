@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Litmus — hh.ru fit scorer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A fast read on whether a vacancy is worth your time. Scores your fit against any hh.ru posting using the Jev typed-decision model.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://*.hh.ru/*",
     "https://api.typesafe.ai/*"
@@ -14,7 +16,9 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.hh.ru/*"],
+      "matches": [
+        "https://*.hh.ru/*"
+      ],
       "js": [
         "content/extract.js",
         "content/panel.js",

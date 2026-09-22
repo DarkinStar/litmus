@@ -74,11 +74,12 @@ for (const file of fs.readdirSync(CORPUS).filter((f) => f.endsWith('.html'))) {
   const vacancy = extract.extractVacancy(dom.window.document, 'https://hh.ru/vacancy/1', settings.maxCandidates);
 
   const state = buildState(vacancy, profile, prefs);
-  const { questions, reqIndex, askedSubs } = buildQuestions(vacancy, profile, prefs, settings);
+  const { questions, reqIndex, askedSubs, computedSubs } =
+    buildQuestions(vacancy, profile, prefs, settings);
   const answers = mockAnswers(questions);
 
   const result = computeResult({
-    answers, reqIndex, askedSubs, settings, vacancy,
+    answers, reqIndex, askedSubs, computedSubs, settings, vacancy,
     modelVersion: 'jev-mock', usage: { input_tokens: 0, output_tokens: 0 }, latencyMs: 0
   });
 
@@ -92,14 +93,19 @@ for (const file of fs.readdirSync(CORPUS).filter((f) => f.endsWith('.html'))) {
   console.log(`   TOTAL est      : ~${stateTok + qTok + 390} tok  ->  $${((stateTok + qTok + 390) * 0.042 / 1e6).toFixed(6)}`);
   console.log(`   overall        : ${result.overall}% (${result.band})${result.capped ? ' CAPPED' : ''}`);
   console.log(`   subs           : ${Object.entries(result.subs).map(([k, v]) => `${k}=${v.pct}%`).join(' ')}`);
-  console.log(`   requirements   : ${result.requirements.length} hard, ${result.niceToHave.length} nice-to-have, ${result.eligibility.length} eligibility, ${result.discarded.length} dropped`);
-  console.log(`   scored on      : ${result.ratedCount} rated, ${result.unassessedCount} unassessable (excluded, not failed)`);
+  console.log(`   requirements   : ${result.requirements.length} hard, ${result.niceToHave.length} nice, ${result.eligibility.length} eligibility, ${result.softSkills.length} soft, ${result.discarded.length} dropped`);
+  console.log(`   coverage       : ${result.ratedCount}/${result.hardCount} assessed` +
+    (result.coverage === null ? '' : ` (${Math.round(result.coverage * 100)}%)`) +
+    (result.rawPassRate === null ? '' : `  raw ${Math.round(result.rawPassRate * 100)}% -> damped ${Math.round(result.passRate * 100)}%`));
+  console.log(`   task affinity  : ${result.taskAffinity}%   nice bonus: +${result.niceBonus}`);
+  console.log(`   computed subs  : ${Object.entries(computedSubs).map(([k, v]) => `${k}=${v.pct}% (${v.reason})`).join('; ') || 'none'}`);
   console.log(`   flags          : ${result.flags.map((f) => f.key).join(', ') || 'none'}`);
   console.log(`   dealbreakers   : ${result.dealbreakers.map((d) => d.key).join(', ') || 'none'}`);
 
   // --- invariants ---
   if (stateTok > 32000) { console.log('   FAIL state exceeds the 32k limit (§3)'); failures++; }
   if (stateTok + qTok + 390 > 64000) { console.log('   FAIL request exceeds the 64k limit (§3)'); failures++; }
+  if (stateTok + qTok + 390 > 52000) { console.log('   FAIL budget guard did not trim enough'); failures++; }
   if (result.overall === null) { console.log('   FAIL overall is null'); failures++; }
   if (result.overall < 0 || result.overall > 100) { console.log('   FAIL overall out of range'); failures++; }
   if (JSON.stringify(state).includes('<')) { console.log('   FAIL raw HTML leaked into state (§5.1/D5)'); failures++; }
@@ -118,6 +124,23 @@ for (const file of fs.readdirSync(CORPUS).filter((f) => f.endsWith('.html'))) {
   // The colon pre-filter should keep obvious headers out of the harvest.
   const colonHeads = vacancy.requirementCandidates.filter((t) => extract.isHeading(t));
   if (colonHeads.length) { console.log(`   FAIL ${colonHeads.length} heading(s) survived the pre-filter`); failures++; }
+
+  // Coverage damping must never RAISE the requirement score.
+  if (result.rawPassRate !== null && result.passRate > result.rawPassRate + 1e-9) {
+    console.log('   FAIL coverage damping increased the score'); failures++;
+  }
+  // Nice-to-haves are upside only.
+  if (result.niceBonus < 0 || result.niceBonus > settings.niceToHaveBonus) {
+    console.log('   FAIL nice-to-have bonus out of range'); failures++;
+  }
+  // Soft skills must never reach the scored set.
+  if (result.requirements.some((r) => r.kind === 'soft_skill')) {
+    console.log('   FAIL a soft skill was scored'); failures++;
+  }
+  // Short skill names must survive the harvest now.
+  if (vacancy.requirementCandidates.some((t) => t.length < 5)) {
+    console.log('   FAIL a sub-minimum fragment was harvested'); failures++;
+  }
   console.log('');
 }
 
