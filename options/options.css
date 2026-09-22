@@ -1,0 +1,89 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: #f4f6f9;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  color: #1a1a1a;
+}
+.page { max-width: 780px; margin: 0 auto; padding: 32px 24px 64px; }
+header h1 { font-size: 22px; margin: 0 0 6px; }
+header .sub { color: #5a6472; margin: 0 0 22px; font-size: 13.5px; }
+
+.steps { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+.step {
+  font: inherit; font-size: 13px; padding: 8px 14px; border-radius: 8px;
+  border: 1px solid #dfe3e9; background: #fff; color: #5a6472; cursor: pointer;
+}
+.step b {
+  display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center;
+  border-radius: 50%; background: #eceff3; color: #5a6472; font-size: 11px; margin-right: 6px;
+}
+.step.active { border-color: #2965cc; color: #2965cc; background: #f3f7ff; }
+.step.active b { background: #2965cc; color: #fff; }
+
+.panel {
+  background: #fff; border: 1px solid #e3e7ec; border-radius: 12px;
+  padding: 24px; box-shadow: 0 1px 3px rgba(16,24,40,.05);
+}
+h2 { font-size: 17px; margin: 0 0 6px; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: #8a929e;
+  margin: 26px 0 8px; }
+.hint { color: #5a6472; font-size: 13px; margin: 0 0 16px; }
+.muted { color: #9aa2ae; font-weight: 400; }
+code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+
+label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 5px; }
+label.check { font-weight: 400; display: flex; align-items: center; gap: 8px; }
+label.check input { margin: 0; }
+input[type=text], input[type=password], input[type=number], textarea, select {
+  width: 100%; font: inherit; font-size: 13.5px; padding: 9px 11px;
+  border: 1px solid #d5dae1; border-radius: 8px; background: #fff; color: #1a1a1a;
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid #b9d0f5; border-color: #2965cc; }
+textarea { resize: vertical; }
+
+.row { display: flex; gap: 8px; align-items: center; }
+.row.wrap { flex-wrap: wrap; }
+.row input { flex: 1; }
+
+.btn {
+  font: inherit; font-size: 13px; padding: 9px 15px; border-radius: 8px;
+  border: 1px solid #d5dae1; background: #fff; color: #39414d; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: #f7f9fb; }
+.btn.primary { background: #2965cc; border-color: #2965cc; color: #fff; }
+.btn.primary:hover { background: #2358b4; }
+.btn.small { font-size: 12.5px; padding: 6px 11px; margin-top: 8px; }
+.btn.danger { color: #c0392b; border-color: #edc4be; }
+
+.nav { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid #eef1f4; }
+
+.result { margin-top: 12px; font-size: 13px; padding: 0; }
+.result.show { padding: 10px 12px; border-radius: 8px; }
+.result.good { background: #e8f6ee; border: 1px solid #b7e3c9; color: #14693f; }
+.result.bad  { background: #fdeaea; border: 1px solid #f5c2c2; color: #a62828; }
+
+.repeat { display: grid; gap: 10px; }
+.card {
+  border: 1px solid #e3e7ec; border-radius: 10px; padding: 14px; background: #fafbfc;
+  position: relative;
+}
+.card .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card label { margin-top: 0; }
+.card .full { grid-column: 1 / -1; }
+.card .rm {
+  position: absolute; top: 10px; right: 10px; border: none; background: none;
+  color: #9aa2ae; cursor: pointer; font-size: 16px; line-height: 1; padding: 4px 6px;
+  border-radius: 6px;
+}
+.card .rm:hover { background: #eef1f4; color: #c0392b; }
+
+.grid { display: grid; gap: 12px; }
+.grid.two { grid-template-columns: 1fr 1fr; }
+.grid label { margin: 0; display: grid; gap: 5px; font-weight: 500; font-size: 12.5px; color: #5a6472; }
+
+.fallback { margin-top: 22px; border: 1px solid #e3e7ec; border-radius: 10px; padding: 12px 14px; background: #fafbfc; }
+.fallback summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.fallback .hint { margin: 10px 0; }
+
+footer { margin-top: 18px; text-align: center; font-size: 12px; color: #9aa2ae; }
+.saved.flash { color: #14693f; font-weight: 600; }

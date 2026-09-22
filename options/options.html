@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>hh Fit Scorer — Setup</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>hh Fit Scorer</h1>
+    <p class="sub">Scores how well you fit a vacancy while you browse hh.ru. Your key and profile never leave this browser except in the scoring call itself.</p>
+  </header>
+
+  <nav class="steps">
+    <button class="step" data-step="1"><b>1</b> API key</button>
+    <button class="step" data-step="2"><b>2</b> Profile</button>
+    <button class="step" data-step="3"><b>3</b> Preferences</button>
+    <button class="step" data-step="4"><b>4</b> Settings</button>
+  </nav>
+
+  <!-- ── Step 1 ─────────────────────────────────────────────── -->
+  <section class="panel" data-panel="1">
+    <h2>Your Jev API key</h2>
+    <p class="hint">Stored only in <code>chrome.storage.local</code>. Never committed, never sent anywhere except api.typesafe.ai.</p>
+    <div class="row">
+      <input type="password" id="apiKey" placeholder="sk-…" autocomplete="off" spellcheck="false">
+      <button class="btn" id="toggleKey" type="button">Show</button>
+      <button class="btn primary" id="testKey" type="button">Test connection</button>
+    </div>
+    <div id="keyResult" class="result"></div>
+    <div class="nav"><button class="btn primary" data-go="2">Next: profile</button></div>
+  </section>
+
+  <!-- ── Step 2 ─────────────────────────────────────────────── -->
+  <section class="panel" data-panel="2" hidden>
+    <h2>Your profile</h2>
+    <p class="hint">This is who you are. Scoring stays disabled until it is filled — an empty profile produces confident nonsense rather than an obvious error.</p>
+
+    <label>Desired position(s)</label>
+    <input type="text" id="desiredPositions" placeholder="ML Engineer, Computer Vision Engineer">
+
+    <label>City</label>
+    <input type="text" id="city" placeholder="Yekaterinburg">
+
+    <label>Skills <span class="muted">— comma separated</span></label>
+    <input type="text" id="skills" placeholder="Python, PyTorch, OpenCV, Docker, SQL">
+
+    <label>Work experience</label>
+    <div id="expList" class="repeat"></div>
+    <button class="btn small" id="addExp" type="button">+ Add experience</button>
+
+    <label>Projects</label>
+    <div id="projList" class="repeat"></div>
+    <button class="btn small" id="addProj" type="button">+ Add project</button>
+
+    <label>Education</label>
+    <textarea id="education" rows="2" placeholder="Ural Federal University, BSc Computer Science, 2024"></textarea>
+
+    <label>Languages</label>
+    <input type="text" id="languages" placeholder="Russian — native, English — B2, Arabic — native">
+
+    <details class="fallback">
+      <summary>Quick start — paste your resume instead</summary>
+      <p class="hint">If you fill this with at least ~120 characters, it alone is enough to enable scoring. The structured fields above give better results.</p>
+      <textarea id="resumeText" rows="10" placeholder="Paste your full resume text here…"></textarea>
+    </details>
+
+    <div class="nav">
+      <button class="btn" data-go="1">Back</button>
+      <button class="btn primary" data-go="3">Next: preferences</button>
+    </div>
+  </section>
+
+  <!-- ── Step 3 ─────────────────────────────────────────────── -->
+  <section class="panel" data-panel="3" hidden>
+    <h2>Preferences</h2>
+    <p class="hint">This is what you want, kept separate from who you are. These drive the dealbreaker checks that cap the score.</p>
+
+    <label>Work format</label>
+    <select id="workFormat">
+      <option value="any">No preference</option>
+      <option value="remote">Remote only</option>
+      <option value="office">Office</option>
+      <option value="hybrid">Hybrid</option>
+    </select>
+
+    <label class="check"><input type="checkbox" id="relocation"> I am willing to relocate</label>
+
+    <label>Minimum salary <span class="muted">— leave empty if it doesn't matter</span></label>
+    <input type="number" id="minSalary" placeholder="150000" min="0" step="1000">
+
+    <label>Employment type</label>
+    <select id="employment">
+      <option value="any">No preference</option>
+      <option value="full">Full time</option>
+      <option value="part">Part time</option>
+      <option value="project">Project</option>
+      <option value="internship">Internship</option>
+    </select>
+
+    <label>Target level</label>
+    <select id="targetLevel">
+      <option value="any">No preference</option>
+      <option value="intern">Intern</option>
+      <option value="junior">Junior</option>
+      <option value="middle">Middle</option>
+      <option value="senior">Senior</option>
+    </select>
+
+    <div class="nav">
+      <button class="btn" data-go="2">Back</button>
+      <button class="btn primary" data-go="4">Next: settings</button>
+    </div>
+  </section>
+
+  <!-- ── Step 4 ─────────────────────────────────────────────── -->
+  <section class="panel" data-panel="4" hidden>
+    <h2>Settings</h2>
+
+    <h3>Weights</h3>
+    <p class="hint">How much each component counts toward the overall score. Renormalised automatically when a component is unavailable, so they need not sum to 1.</p>
+    <div class="grid" id="weights"></div>
+
+    <h3>Colour thresholds</h3>
+    <div class="grid two">
+      <label>Green at or above<input type="number" id="thGreen" min="0" max="100"></label>
+      <label>Yellow at or above<input type="number" id="thYellow" min="0" max="100"></label>
+    </div>
+
+    <h3>Requirement checklist</h3>
+    <div class="grid two">
+      <label>Keep a line if "is a requirement" ≥<input type="number" id="reqThreshold" min="0" max="1" step="0.05"></label>
+      <label>Max lines sent per vacancy<input type="number" id="maxCandidates" min="5" max="120" step="5"></label>
+      <label>Mark ✓ at or above<input type="number" id="reqOk" min="0" max="1" step="0.05"></label>
+      <label>Mark ✕ below<input type="number" id="reqFail" min="0" max="1" step="0.05"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="showDiscarded"> Show lines Jev judged not to be requirements (debug)</label>
+
+    <h3>Dealbreakers</h3>
+    <div class="grid two">
+      <label>Trigger at probability ≥<input type="number" id="dealbreakerProb" min="0" max="1" step="0.05"></label>
+      <label>Cap the score at<input type="number" id="dealbreakerCap" min="0" max="100"></label>
+    </div>
+
+    <h3>Data</h3>
+    <div class="row wrap">
+      <button class="btn" id="exportBtn" type="button">Export JSON</button>
+      <button class="btn" id="importBtn" type="button">Import JSON</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+      <button class="btn" id="clearCache" type="button">Clear cache</button>
+      <button class="btn" id="resetUsage" type="button">Reset usage counter</button>
+    </div>
+    <div id="dataResult" class="result"></div>
+
+    <div class="nav"><button class="btn" data-go="3">Back</button></div>
+  </section>
+
+  <footer>
+    <span id="saveState" class="saved">All changes save automatically</span>
+  </footer>
+</div>
+<script src="options.js" type="module"></script>
+</body>
+</html>

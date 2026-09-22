@@ -1,0 +1,15 @@
+{
+  "name": "litmus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A fast read on whether a vacancy is worth your time. Chrome extension that scores your fit against any hh.ru posting, using the Jev model.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tools/test-extract.mjs",
+    "dry": "node tools/test-pipeline.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  },
+  "type": "module"
+}
