@@ -1,0 +1,22 @@
+# ──────────────────────────────────────────────────────────────────────
+# DO NOT REMOVE THIS LINE.
+# toBeIgnored/ holds saved hh.ru pages used as the extractor's test corpus.
+# They are "Webpage, complete" saves of authenticated sessions and were
+# verified to contain personal session artifacts — account name, hhuid,
+# and _xsrf tokens. Publishing them would leak your hh.ru session.
+toBeIgnored/
+# ──────────────────────────────────────────────────────────────────────
+
+node_modules/
+
+# Secrets never belong in the repo. The Jev API key lives in
+# chrome.storage.local at runtime and is never written to disk here.
+.env
+*.local.json
+key.txt
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
