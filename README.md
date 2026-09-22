@@ -64,13 +64,34 @@ On the third page it would confidently score you against the employer's own mark
 
 Matching on section headers (`Требования:`, `Requirements:`) fails too — one of the three pages words it *"Для успешного старта карьеры тебе нужно:"*, which no keyword list anticipates, and every miss is silent.
 
-So Litmus doesn't try to identify requirements structurally. It **harvests generously, then lets the model discard**:
+So Litmus doesn't try to identify requirements structurally. It **harvests generously, then lets the model sort**:
 
 1. Take every leaf `<li>` *and* every leaf `<p>` in the description — no keywords, no structural or language assumptions.
-2. Ask two atomic yes/no questions per line, in the same batched call: *is this a requirement?* and *does the candidate satisfy it?*
-3. Keep a line only if the first probability clears a threshold, then render the second as ✓ / ! / ✕.
+2. Ask two questions per line, in the same batched call: *what kind of line is this?* and *how well does the candidate satisfy it?*
+3. Group by the answer. Only hard requirements count toward the score.
 
-This works on all three page shapes, in any language, for any profession. It costs about $0.0006 per vacancy.
+The first version asked "is this a requirement?" as a single yes/no and filtered on a threshold. Against a live posting that failed in both directions at once: the heading *"Пожалуйста, обрати внимание на требования, это важно:"* scored 0.60 and sat in the checklist looking like a requirement, while the genuine requirement *"LLM, эмбеддинги и векторный поиск"* fell below the threshold and vanished.
+
+No threshold fixes that, because classification was never a yes/no question — a heading, a must-have, a bonus, an eligibility condition and a duty are five different things competing for one axis. So the classifier returns one of six kinds, and the checklist groups them:
+
+```
+REQUIREMENTS          hard_requirement  → scored
+NICE TO HAVE          nice_to_have      → shown, not scored
+ELIGIBILITY           eligibility       → pass/fail gate
+(hidden)              heading, duty, other
+```
+
+**Absence of evidence isn't evidence of absence.** The satisfaction question has four answers, not two, because "your profile never mentions Linux" is a different claim from "you don't know Linux". Items the profile is silent on render as a grey `?`, are excluded from the score rather than counted against you, and become a prompt to update your profile:
+
+```
+✓  Python: ООП, чтение чужого кода            92%
+?  Уверенная работа в командной строке Linux   not in profile
+✕  Опыт коммерческой разработки на Go от 3 лет   8%
+
+   2 items could not be assessed from your profile
+```
+
+This works on all three page shapes, in any language, for any profession, at about $0.001 per vacancy.
 
 ## Install
 
@@ -95,11 +116,13 @@ Jev charges $0.042 per million input tokens; output is free. Measured on real pa
 
 | Vacancy size | Questions | Tokens | Cost |
 |---|---|---|---|
-| Large (60 requirement candidates) | 136 | ~14.8k | $0.00062 |
-| Medium (23) | 61 | ~8.6k | $0.00036 |
-| Small (15) | 46 | ~4.9k | $0.00020 |
+| Large (60 candidate lines) | 136 | ~23.9k | $0.00101 |
+| Medium (20) | 55 | ~11.1k | $0.00047 |
+| Small (14) | 43 | ~6.7k | $0.00028 |
 
-Roughly 8,000 vacancies on TypeSafe's $5 free credit. Results are cached by vacancy ID, so revisiting a posting costs nothing.
+Roughly 5,000 vacancies on TypeSafe's $5 free credit. Results are cached by vacancy ID, so revisiting a posting costs nothing.
+
+A measured live run came back in **802 ms** for 71 questions — the questions are evaluated in parallel, so a longer posting costs more tokens but barely more time.
 
 ## Privacy and boundaries
 

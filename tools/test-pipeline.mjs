@@ -36,18 +36,31 @@ const settings = { ...DEFAULT_SETTINGS };
 let seed = 42;
 const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 
+/** Pick a key at random from a criteria dict, and build a probability map. */
+function mockChoice(criteria) {
+  const keys = Object.keys(criteria);
+  const chosen = keys[Math.floor(rnd() * keys.length)];
+  const probabilities = {};
+  let total = 0;
+  for (const k of keys) {
+    const v = k === chosen ? 0.5 + rnd() * 0.5 : rnd() * 0.3;
+    probabilities[k] = v;
+    total += v;
+  }
+  for (const k of keys) probabilities[k] = probabilities[k] / total;
+  return { type: 'choice', choice: chosen, probabilities, confidence: 0.4 + rnd() * 0.6 };
+}
+
 /** Fabricate a plausible Jev response for a question set. */
 function mockAnswers(questions) {
   const answers = {};
   for (const [key, q] of Object.entries(questions)) {
     if (q.type === 'score') {
       answers[key] = { type: 'score', score: Math.floor(rnd() * 5), confidence: 0.6 + rnd() * 0.4 };
+    } else if (q.type === 'choice') {
+      answers[key] = mockChoice(q.criteria);
     } else if (q.type === 'noul') {
-      // Bias: most harvested lines are NOT requirements, which is the whole
-      // point of the _is filter (§5.2 step 3).
-      const p = key.endsWith('_is') ? (rnd() < 0.35 ? 0.6 + rnd() * 0.4 : rnd() * 0.5)
-        : rnd();
-      answers[key] = { type: 'noul', noul: p };
+      answers[key] = { type: 'noul', noul: rnd() };
     }
   }
   return answers;
@@ -79,7 +92,8 @@ for (const file of fs.readdirSync(CORPUS).filter((f) => f.endsWith('.html'))) {
   console.log(`   TOTAL est      : ~${stateTok + qTok + 390} tok  ->  $${((stateTok + qTok + 390) * 0.042 / 1e6).toFixed(6)}`);
   console.log(`   overall        : ${result.overall}% (${result.band})${result.capped ? ' CAPPED' : ''}`);
   console.log(`   subs           : ${Object.entries(result.subs).map(([k, v]) => `${k}=${v.pct}%`).join(' ')}`);
-  console.log(`   requirements   : ${result.requirements.length} kept, ${result.discarded.length} discarded`);
+  console.log(`   requirements   : ${result.requirements.length} hard, ${result.niceToHave.length} nice-to-have, ${result.eligibility.length} eligibility, ${result.discarded.length} dropped`);
+  console.log(`   scored on      : ${result.ratedCount} rated, ${result.unassessedCount} unassessable (excluded, not failed)`);
   console.log(`   flags          : ${result.flags.map((f) => f.key).join(', ') || 'none'}`);
   console.log(`   dealbreakers   : ${result.dealbreakers.map((d) => d.key).join(', ') || 'none'}`);
 
@@ -90,6 +104,20 @@ for (const file of fs.readdirSync(CORPUS).filter((f) => f.endsWith('.html'))) {
   if (result.overall < 0 || result.overall > 100) { console.log('   FAIL overall out of range'); failures++; }
   if (JSON.stringify(state).includes('<')) { console.log('   FAIL raw HTML leaked into state (§5.1/D5)'); failures++; }
   if (result.capped && result.overall !== settings.dealbreakerCap) { console.log('   FAIL cap not applied'); failures++; }
+
+  // Unassessable items must never reach the pass rate, in either direction.
+  const leaked = [...result.requirements, ...result.niceToHave]
+    .filter((r) => r.unassessed && typeof r.fit === 'number');
+  if (leaked.length) { console.log('   FAIL unassessable item carries a fit score'); failures++; }
+
+  // Headings must not survive into the shown checklist.
+  const headings = [...result.requirements, ...result.niceToHave, ...result.eligibility]
+    .filter((r) => r.kind === 'heading');
+  if (headings.length) { console.log('   FAIL a heading reached the checklist'); failures++; }
+
+  // The colon pre-filter should keep obvious headers out of the harvest.
+  const colonHeads = vacancy.requirementCandidates.filter((t) => extract.isHeading(t));
+  if (colonHeads.length) { console.log(`   FAIL ${colonHeads.length} heading(s) survived the pre-filter`); failures++; }
   console.log('');
 }
 

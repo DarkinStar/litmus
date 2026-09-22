@@ -80,6 +80,7 @@
       const res = await ask({ type: 'score', vacancy, force: !!force });
 
       if (res && res.ok) {
+        lastResult = res.result;
         panel.showResult(res.result, res.settings);
       } else if (res && (res.error?.code === 'NO_KEY' || res.error?.code === 'NO_PROFILE')) {
         panel.showNeedsSetup(res.error.code);
@@ -107,9 +108,16 @@
     });
   }
 
+  let lastResult = null;
+
   panel.setHandlers({
     rescore: () => score(true),
     openOptions: () => ask({ type: 'openOptions' }),
+    copyDebug: (btn) => {
+      if (!lastResult?.debug) return;
+      copy(JSON.stringify(lastResult.debug, null, 2));
+      flash(btn, 'Copied');
+    },
     copyVacancy: (btn) => {
       if (!lastVacancy) return;
       copy(extract.toPlainText(lastVacancy));

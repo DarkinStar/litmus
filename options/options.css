@@ -80,6 +80,7 @@ textarea { resize: vertical; }
 .grid { display: grid; gap: 12px; }
 .grid.two { grid-template-columns: 1fr 1fr; }
 .grid label { margin: 0; display: grid; gap: 5px; font-weight: 500; font-size: 12.5px; color: #5a6472; }
+.grid label.full-span { grid-column: 1 / -1; }
 
 .fallback { margin-top: 22px; border: 1px solid #e3e7ec; border-radius: 10px; padding: 12px 14px; background: #fafbfc; }
 .fallback summary { cursor: pointer; font-size: 13px; font-weight: 600; }

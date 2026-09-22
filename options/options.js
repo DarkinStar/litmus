@@ -120,6 +120,11 @@ function fillForm() {
   $('education').value = p.education || '';
   $('languages').value = p.languages || '';
   $('resumeText').value = p.resumeText || '';
+  $('status').value = p.status || '';
+  $('studyYear').value = p.studyYear || '';
+  $('hoursPerWeek').value = p.hoursPerWeek || '';
+  $('earliestStart').value = p.earliestStart || '';
+  $('workAuthorization').value = p.workAuthorization || '';
   renderCards($('expList'), p.experience, EXP_FIELDS, queueSave);
   renderCards($('projList'), p.projects, PROJ_FIELDS, queueSave);
 
@@ -133,11 +138,12 @@ function fillForm() {
   const s = state.settings;
   $('thGreen').value = s.thresholds.green;
   $('thYellow').value = s.thresholds.yellow;
-  $('reqThreshold').value = s.reqThreshold;
   $('maxCandidates').value = s.maxCandidates;
   $('reqOk').value = s.reqOk;
   $('reqFail').value = s.reqFail;
+  $('scoreNiceToHave').checked = !!s.scoreNiceToHave;
   $('showDiscarded').checked = !!s.showDiscarded;
+  $('showDebug').checked = !!s.showDebug;
   $('dealbreakerProb').value = s.dealbreakerProb;
   $('dealbreakerCap').value = s.dealbreakerCap;
   renderWeights();
@@ -153,6 +159,11 @@ function readForm() {
   p.education = $('education').value;
   p.languages = $('languages').value;
   p.resumeText = $('resumeText').value;
+  p.status = $('status').value;
+  p.studyYear = $('studyYear').value;
+  p.hoursPerWeek = $('hoursPerWeek').value;
+  p.earliestStart = $('earliestStart').value;
+  p.workAuthorization = $('workAuthorization').value;
 
   const num = (id) => {
     const v = parseFloat($(id).value);
@@ -169,11 +180,12 @@ function readForm() {
 
   const s = state.settings;
   s.thresholds = { green: num('thGreen') ?? 75, yellow: num('thYellow') ?? 50 };
-  s.reqThreshold = num('reqThreshold') ?? DEFAULT_SETTINGS.reqThreshold;
   s.maxCandidates = num('maxCandidates') ?? DEFAULT_SETTINGS.maxCandidates;
   s.reqOk = num('reqOk') ?? DEFAULT_SETTINGS.reqOk;
   s.reqFail = num('reqFail') ?? DEFAULT_SETTINGS.reqFail;
+  s.scoreNiceToHave = $('scoreNiceToHave').checked;
   s.showDiscarded = $('showDiscarded').checked;
+  s.showDebug = $('showDebug').checked;
   s.dealbreakerProb = num('dealbreakerProb') ?? DEFAULT_SETTINGS.dealbreakerProb;
   s.dealbreakerCap = num('dealbreakerCap') ?? DEFAULT_SETTINGS.dealbreakerCap;
 }

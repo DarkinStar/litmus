@@ -60,6 +60,32 @@
     <label>Languages</label>
     <input type="text" id="languages" placeholder="Russian — native, English — B2, Arabic — native">
 
+    <h3>Availability</h3>
+    <p class="hint">Internship and junior postings test these constantly — "30–40 часов в неделю", "4 курс бакалавриата". Without them the model has nothing to compare against and returns a meaningless mid-range guess.</p>
+
+    <div class="grid two">
+      <label>Current status
+        <select id="status">
+          <option value="">Not specified</option>
+          <option value="student">Student</option>
+          <option value="working">Working</option>
+          <option value="seeking">Seeking work</option>
+        </select>
+      </label>
+      <label>Study year <span class="muted">if student</span>
+        <input type="text" id="studyYear" placeholder="4 курс бакалавриата">
+      </label>
+      <label>Hours available per week
+        <input type="text" id="hoursPerWeek" placeholder="30-40">
+      </label>
+      <label>Earliest start
+        <input type="text" id="earliestStart" placeholder="immediately">
+      </label>
+      <label class="full-span">Work authorisation <span class="muted">— citizenship or permit, if relevant</span>
+        <input type="text" id="workAuthorization" placeholder="RF citizen">
+      </label>
+    </div>
+
     <details class="fallback">
       <summary>Quick start — paste your resume instead</summary>
       <p class="hint">If you fill this with at least ~120 characters, it alone is enough to enable scoring. The structured fields above give better results.</p>
@@ -129,13 +155,15 @@
     </div>
 
     <h3>Requirement checklist</h3>
+    <p class="hint">Lines are sorted into kinds (requirement, nice-to-have, eligibility, heading, duty, other) by the model, so there is no "is it a requirement" threshold to tune. Only hard requirements count toward the score; items your profile doesn't mention are excluded rather than failed.</p>
     <div class="grid two">
-      <label>Keep a line if "is a requirement" ≥<input type="number" id="reqThreshold" min="0" max="1" step="0.05"></label>
       <label>Max lines sent per vacancy<input type="number" id="maxCandidates" min="5" max="120" step="5"></label>
       <label>Mark ✓ at or above<input type="number" id="reqOk" min="0" max="1" step="0.05"></label>
       <label>Mark ✕ below<input type="number" id="reqFail" min="0" max="1" step="0.05"></label>
     </div>
-    <label class="check"><input type="checkbox" id="showDiscarded"> Show lines Jev judged not to be requirements (debug)</label>
+    <label class="check"><input type="checkbox" id="scoreNiceToHave"> Count nice-to-haves toward the score as well</label>
+    <label class="check"><input type="checkbox" id="showDiscarded"> Show lines the classifier dropped, and why (debug)</label>
+    <label class="check"><input type="checkbox" id="showDebug"> Show the exact data sent to Jev, in the panel (debug)</label>
 
     <h3>Dealbreakers</h3>
     <div class="grid two">

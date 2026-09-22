@@ -8,12 +8,16 @@ Repo: https://github.com/DarkinStar/litmus  (MIT, public)
 =============================================================
 Last updated: 2026-09-22
 
-Phase: research DONE. v1 PROTOTYPE BUILT (v0.1.0), not yet run against the
-live API. Every file in §8 exists. Both harnesses pass:
-    npm test   extract.js vs the 3 saved pages (§9 regression rule)
+Phase: v0.2.0. Run against the live API and revised from what came back.
+
+RESOLVED by the first live run (jev-1.13.0, 71 questions, 13314 tok, 802 ms):
+  - The request shape from docs.typesafe.ai/api.md works unmodified.
+  - LATENCY RISK CLOSED. 71 parallel questions returned in 802 ms, inside the
+    <1s target. The fan-out pattern holds; do not re-litigate it.
+
+Both harnesses pass:
+    npm test     extract.js vs the 3 saved pages (§9 regression rule)
     npm run dry  extract -> questions -> mocked Jev -> scoring, end to end
-UNVERIFIED until the first real call: the Jev request/response shape (taken
-from docs.typesafe.ai/api.md, not yet exercised) and the latency risk in §5.2.
 
 Section 8 of the old spec ("needed before building") is now satisfied. Three
 real hh.ru vacancy pages were saved and inspected. The findings are in §4
@@ -30,15 +34,26 @@ Decisions locked (do not reopen without a reason):
   D5. Send Jev the extracted FIELDS, never raw page HTML. (§5.1)
   D6. Fit result is shown as a VISUAL gauge, not a bare number. (§6.4)
   D7. The profile is mandatory; scoring stays disabled until it is filled.
+  D8. Line classification is a 6-way `choice`, NOT a binary noul + threshold.
+      Supersedes the original design; see §5.2 for why it had to change.
+  D9. Satisfaction is a 4-way `choice` that includes `not_addressed`. "The
+      profile never mentions it" is not "the candidate lacks it". Unassessable
+      items are excluded from the pass rate, never counted as failures. (§5.2)
+  D10. "Skills match" scores against hh's OWN key-skill tags, not the
+      description prose, so it stops duplicating the requirement checklist.
+      No tags on the posting -> question skipped, weight redistributes. (§5.3)
 
 Defaults chosen on the user's behalf (flag if you disagree):
-  - Requirement filter threshold: keep a line if is_requirement >= 0.60,
-    exposed as a setting.
-  - Lines with low is_requirement but high satisfies: hidden from the
-    checklist; visible only behind a "show discarded lines" debug toggle.
   - Checklist contributes a PASS-RATE (not a pass-count) to the overall
-    score, because the surviving requirement count varies per vacancy
-    (measured: 9 vs 14 vs 3).
+    score, because the surviving requirement count varies per vacancy.
+  - Pass rate counts HARD REQUIREMENTS ONLY. Nice-to-haves get their own
+    group and are excluded, because an optional "будет плюсом" must not weigh
+    the same as a must-have. Toggle: settings.scoreNiceToHave.
+  - Eligibility lines (course year, hours/week, citizenship) are pass/fail
+    gates shown in their own group, never scored as skills. A clearly failed
+    one is surfaced as a warning block above the checklist.
+  - Lines classified heading / duty / other are hidden; visible behind the
+    "show discarded" debug toggle, which now also prints the kind assigned.
 
 =============================================================
 1. Goal
@@ -228,14 +243,43 @@ rule fails on 2 of 3 pages (§4.5). Replacement, in three steps:
     Measured candidate counts: A=65, B=15, C=23. Cap at 60.
     No language assumptions, no structural assumptions, no keyword lists.
 
-  Step 2 ASK two ATOMIC noul questions per candidate, in the same one call:
-    req_N_is  : "This text states a requirement or expectation placed on
-                 the candidate: '<line>'"
-    req_N_fit : "The candidate's profile satisfies this requirement: '<line>'"
+  Step 1b PRE-FILTER headings in code (cheap, token-saving):
+    drop a line that ends in ':' and is under 80 chars and has <3 separators.
+    Keys off PUNCTUATION and shape, never label words, so it does not violate
+    D4 — a short colon-terminated line is a header in any language. The
+    classifier below is still the real defence; this just saves the tokens.
 
-  Step 3 FILTER in code:
-    keep the line only if req_N_is >= 0.60 (configurable),
-    then render req_N_fit as the check state.
+  Step 2 ASK two ATOMIC `choice` questions per candidate, in the same call:
+    req_N_kind : classify the line ->
+        hard_requirement | nice_to_have | eligibility | heading | duty | other
+    req_N_fit  : how well the profile satisfies it ->
+        satisfied | partial | not_addressed | not_satisfied
+
+  Step 3 GROUP in code (no threshold):
+    hard_requirement -> the main checklist, counts toward the pass rate
+    nice_to_have     -> its own group, excluded unless scoreNiceToHave
+    eligibility      -> its own group, pass/fail gate, never scored as a skill
+    everything else  -> dropped (visible under the "show discarded" toggle)
+
+WHY IT IS NOT A BINARY noul + THRESHOLD (D8, learned from the live run):
+The original design asked "is this a requirement?" as one noul and filtered on
+a threshold. Against a real posting it failed in both directions at once:
+  - the heading "Пожалуйста, обрати внимание на требования, это важно:" scored
+    0.60 and sat in the checklist looking like a requirement;
+  - the genuine requirement "LLM, эмбеддинги и векторный поиск" fell BELOW the
+    threshold and vanished.
+No threshold can fix that, because classification was never a yes/no judgment.
+A heading, a must-have, a bonus, an eligibility condition and a duty are five
+different things competing for one axis. Hence the 6-way choice.
+
+WHY SATISFACTION ALSO NEEDED A choice (D9):
+The old fit noul could not distinguish "the candidate lacks this" from "the
+profile is silent on it". Both collapsed to a low probability, so unmentioned
+skills rendered as failures — Linux at 35%, Git at 64%, when the profile simply
+never mentioned either. `not_addressed` separates them; those items show a grey
+"not in profile" and are excluded from the pass rate in both directions.
+Continuous fit is derived from the probabilities with the not_addressed mass
+removed from the denominator:  fit = (p_satisfied + 0.5*p_partial) / (1 - p_na)
 
 Why not a keyword/header heuristic: it needs a bilingual keyword list that
 must be maintained forever, and every miss is SILENT. Page C's header
@@ -248,29 +292,40 @@ between not_a_requirement and not_satisfied, and you can't tell which
 happened. Two nouls keep each judgment atomic (see §5.4). The choice variant
 saves tokens we are not spending anyway.
 
-Cost of this approach, MEASURED by `npm run dry` against the real corpus
-(these supersede an earlier hand estimate that forgot each question also
-carries its own `criteria` true/false descriptions — roughly 2x higher):
-  page A  60 candidates (capped) -> 136 questions -> ~14.8k tok -> $0.00062
-  page B  15 candidates          ->  46 questions ->  ~4.9k tok -> $0.00020
-  page C  23 candidates          ->  61 questions ->  ~8.6k tok -> $0.00036
-Worst case is under a tenth of a cent; the $5 credit is ~8,000 vacancies at
-page-A size. The heaviest page uses 23% of the 64k request limit and 6% of
-the 32k state limit. Cost is NOT a constraint, which is why harvesting is
-deliberately generous rather than cleverly pre-filtered — a tight filter
-risks dropping a real requirement to save money we aren't spending.
+Cost, MEASURED by `npm run dry` (v0.2.0, choice-based):
+  page A  60 candidates (capped) -> 136 questions -> ~23.9k tok -> $0.00101
+  page B  14 candidates          ->  43 questions ->  ~6.7k tok -> $0.00028
+  page C  20 candidates          ->  55 questions -> ~11.1k tok -> $0.00047
+Roughly 1.6x the noul version, because each choice question re-sends its
+criteria descriptions (6 for kind, 4 for fit) on every line. Still a tenth of
+a cent at worst; the $5 credit is ~5,000 vacancies at page-A size. The
+heaviest page uses 37% of the 64k request limit and 6% of the 32k state limit.
+Cost is NOT a constraint, which is why harvesting stays generous rather than
+cleverly pre-filtered — a tight filter risks dropping a real requirement to
+save money we aren't spending. If cost ever DID matter, the lever is the
+repeated criteria text, not the candidate count.
 
-OPEN RISK — latency. The <1s target depends on the documented claim that
-questions run in parallel and "adding questions barely adds latency". 130
-questions is a much harder test of that than the 2-question sample. MEASURE
-on the first real call. If it busts the budget, cap candidates to ~40 by
-dropping the longest ones (long prose paragraphs are rarely one requirement).
+LATENCY — RESOLVED, not a risk. First live run: 71 questions, 802 ms
+end-to-end, inside the <1s target. The documented parallel-evaluation claim
+holds at this fan-out. If a future change pushes it over, the lever is
+settings.maxCandidates (60 -> 40), dropping the longest lines first.
 
 --- 5.3  Overall score (computed in code, not by the model) ----------------
 fit = sum(weight_i * subscore_i), with the requirement PASS-RATE blended in.
 Default weights (editable):
   skills 0.30, requirements checklist 0.25, experience level 0.20,
   role/domain 0.15, location/format 0.10
+Weights RENORMALISE over whatever was actually asked, so a skipped question
+never silently drags the score down.
+
+Sub-questions are SKIPPED, not answered blind, when they have nothing to
+judge against — this was the cause of a persistent low-confidence 48% on
+location:
+  skills   skipped when the posting carries no key-skill tags (D10)
+  salary   skipped when the vacancy posts no salary, or no minimum is set
+  location skipped only when nothing constrains it at all: work format "any"
+           AND willing to relocate. A format preference, or an unwillingness
+           to relocate, keeps the question meaningful.
 Dealbreaker triggered (>0.7) -> cap overall at ~30% and show the reason.
 Salary: vacancy salary present and below my minimum -> dealbreaker.
         Salary absent -> neutral, never penalised.

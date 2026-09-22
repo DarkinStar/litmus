@@ -87,6 +87,17 @@ async function scoreVacancy(vacancy, force) {
     latencyMs: json._latencyMs
   });
 
+  // Observability: exactly what the model was given, so a surprising sub-score
+  // can be diagnosed instead of guessed at. Cached with the result.
+  if (settings.showDebug) {
+    result.debug = {
+      extracted: vacancy,
+      state,
+      questionKeys: Object.keys(questions),
+      rawAnswers: json.answers
+    };
+  }
+
   await addUsage(json.usage);
   if (vacancy.id) await cacheSet(vacancy.id, result);
 

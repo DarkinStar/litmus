@@ -63,6 +63,8 @@ ul.list li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; 
 .warn .mark { color: #d99100; }
 .fail .mark { color: #d64545; }
 .fail .txt { color: #6b7280; }
+.unknown .mark { color: #9aa2ae; }
+.unknown .txt { color: #8a929e; }
 .pct-tag { flex: none; font-size: 11px; color: #9aa2ae; margin-left: auto; padding-left: 8px; }
 
 .alert { border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-top: 12px; }
@@ -89,6 +91,11 @@ button.act:disabled { opacity: .5; cursor: default; }
 @keyframes sp { to { transform: rotate(360deg); } }
 details.disc { margin-top: 10px; }
 details.disc summary { font-size: 12px; color: #8a929e; cursor: pointer; }
+pre.dbg {
+  margin: 10px 0 0; padding: 12px; background: #f7f9fb; border: 1px solid #e6eaef;
+  border-radius: 8px; font-size: 11px; line-height: 1.45; max-height: 340px;
+  overflow: auto; white-space: pre-wrap; word-break: break-word; color: #39414d;
+}
 `;
 
   const esc = (s) => String(s == null ? '' : s)
@@ -234,17 +241,19 @@ details.disc summary { font-size: 12px; color: #8a929e; cursor: pointer; }
 </div>`).join('');
   }
 
-  const MARK = { ok: '✓', warn: '!', fail: '✕' };
+  const MARK = { ok: '✓', warn: '!', fail: '✕', unknown: '?' };
 
-  function checklist(reqs) {
+  function checklist(reqs, emptyMsg) {
     if (!reqs.length) {
-      return '<div class="alert info">Jev did not identify any explicit requirements in this description.</div>';
+      return `<div class="alert info">${esc(emptyMsg)}</div>`;
     }
     return `<ul class="list">${reqs.map((r) => `
 <li class="${esc(r.state)}">
   <span class="mark">${MARK[r.state]}</span>
   <span class="txt">${esc(r.text)}</span>
-  <span class="pct-tag">${Math.round(r.fit * 100)}%</span>
+  <span class="pct-tag">${r.unassessed
+    ? 'not in profile'
+    : Math.round(r.fit * 100) + '%' + (r.unsure ? ' ?' : '')}</span>
 </li>`).join('')}</ul>`;
   }
 
@@ -261,8 +270,30 @@ details.disc summary { font-size: 12px; color: #8a929e; cursor: pointer; }
       }.</div>`);
     }
 
+    if (result.eligibilityFailures && result.eligibilityFailures.length) {
+      parts.push(`<div class="alert cap"><b>Eligibility gate not met.</b> ${
+        result.eligibilityFailures.map((e) => esc(e.text)).join(' · ')
+      }</div>`);
+    }
+
     parts.push(`<div class="section"><h3>Requirements (${result.requirements.length})</h3>
-      ${checklist(result.requirements)}</div>`);
+      ${checklist(result.requirements, 'Jev did not identify any hard requirements in this description.')}</div>`);
+
+    if (result.unassessedCount) {
+      parts.push(`<div class="alert info">${result.unassessedCount} item${
+        result.unassessedCount === 1 ? '' : 's'
+      } could not be assessed — your profile doesn't mention them either way. They are excluded from the score, not counted against you. Worth adding to your profile, or addressing in the cover letter.</div>`);
+    }
+
+    if (result.niceToHave && result.niceToHave.length) {
+      parts.push(`<div class="section"><h3>Nice to have (${result.niceToHave.length})</h3>
+        ${checklist(result.niceToHave, '')}</div>`);
+    }
+
+    if (result.eligibility && result.eligibility.length) {
+      parts.push(`<div class="section"><h3>Eligibility &amp; availability (${result.eligibility.length})</h3>
+        ${checklist(result.eligibility, '')}</div>`);
+    }
 
     if (result.flags.length) {
       parts.push(`<div class="section flags"><h3>Red flags</h3><ul class="list">${
@@ -272,10 +303,18 @@ details.disc summary { font-size: 12px; color: #8a929e; cursor: pointer; }
     }
 
     if (settings && settings.showDiscarded && result.discarded && result.discarded.length) {
-      parts.push(`<details class="disc"><summary>${result.discarded.length} lines Jev judged not to be requirements</summary>
+      parts.push(`<details class="disc"><summary>${result.discarded.length} lines dropped by the classifier</summary>
         <ul class="list">${result.discarded.map((d) => `<li><span class="mark">·</span>
           <span class="txt">${esc(d.text)}</span>
-          <span class="pct-tag">is ${Math.round(d.isReq * 100)}%</span></li>`).join('')}</ul></details>`);
+          <span class="pct-tag">${esc(d.kind)}</span></li>`).join('')}</ul></details>`);
+    }
+
+    // Without this, diagnosing a low sub-score is guesswork — you cannot see
+    // what the model was actually given.
+    if (settings && settings.showDebug && result.debug) {
+      parts.push(`<details class="disc"><summary>Debug — what Jev received</summary>
+        <div class="btns"><button class="act" data-act="copyDebug">Copy payload</button></div>
+        <pre class="dbg">${esc(JSON.stringify(result.debug, null, 2))}</pre></details>`);
     }
 
     parts.push(`<div class="btns">

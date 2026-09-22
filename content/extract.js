@@ -110,6 +110,7 @@
       if (el.querySelector('li, p')) continue;          // containers, not leaves
       const t = clean(el.textContent);
       if (t.length < 15 || t.length > 300) continue;
+      if (isHeading(t)) continue;
       const k = t.toLowerCase();
       if (seen.has(k)) continue;
       seen.add(k);
@@ -117,6 +118,22 @@
       if (out.length >= (cap || 60)) break;
     }
     return out;
+  }
+
+  /**
+   * Cheap pre-filter for section headings, to stop them reaching the model at
+   * all. Keys off PUNCTUATION and shape, never on label words, so it stays
+   * locale-independent and does not violate D4: a short line ending in a colon
+   * ("Требования:", "Requirements:", "Мы ожидаем:") is a header in any language.
+   * The `kind` classifier is still the real defence; this just saves the tokens.
+   */
+  function isHeading(t) {
+    if (!/[:：]$/.test(t)) return false;
+    if (t.length > 80) return false;        // a long line ending in ':' is prose
+    // A colon-terminated line packed with separators is a list written inline,
+    // not a header — keep it.
+    if ((t.match(/[,;]/g) || []).length >= 3) return false;
+    return true;
   }
 
   /** Readable plain text of the description, for §5.1 state and the copy button. */
@@ -214,6 +231,7 @@
     isVacancyUrl,
     vacancyIdFromUrl,
     harvestRequirementCandidates,
+    isHeading,
     parseSalary,
     toPlainText
   };
